@@ -1,0 +1,329 @@
+<html>
+<head>
+<title>GPX Tagger</title>
+<style>
+#container {position:relative}
+#stats1 {font-size: 15px;position:absolute;top:0;right:0;background:lightgray;width:180px;height:100px;}
+#stats2 {font-size: 15px;position:absolute;top:0;right:200;background:lightgray;width:180px;height:100px;}
+#mapdiv {position:absolute;bottom:0;left:0;}
+</style>
+<script>
+var stats = [];
+var currentStat = 0;
+var minlat = null;
+var minlon = null;
+var maxlat = null;
+var maxlon = null; 
+function parseGPX(xmlStr) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlStr, "application/xml");
+  //console.log(xmlStr);
+  var trkNodes = doc.querySelectorAll('trkpt')
+  var currentTime = -1;
+  var startTime = -1;
+  var lastLat = -1;
+  var lastLon = -1;
+  var lastTime = -1;
+  var timeDiff = -1;
+  var totalDist = 0;
+  var lastElevation = -1;
+  var elevationDiff = 0;
+  for (var i = 0; i< trkNodes.length; i++) {
+    lat = trkNodes[i].getAttribute("lat");
+    lon = trkNodes[i].getAttribute("lon");
+    if (minlat == null) {
+      minlat = lat;
+      maxlat = lat;
+      minlon = lon;
+      maxlon = lon;
+    }
+    if (lon < minlon) {
+      minlon = lon;
+    }
+    if (lat < minlat) {
+      minlat = lat;
+    }
+    if (lon > maxlon) {
+      maxlon = lon;
+    }
+    if (lat > maxlat) {
+      maxlat = lat;
+    }
+    if (lastLat == -1 && lastLon == -1) {
+      lastLat = lat;
+      lastLon = lon;
+    }
+    var distance = dist(lastLat,lastLon,lat,lon);
+    totalDist += distance;
+    lastLat = lat;
+    lastLon = lon;
+    var elevation = 0;
+    for (const child of trkNodes[i].children) {
+      if (child.tagName == "ele") {
+         elevation = child.textContent;
+         if (lastElevation == -1) {
+	   lastElevation = elevation;
+         }
+	 elevationDiff = elevation - lastElevation;
+	 lastElevation = elevation;
+      }
+      if (child.tagName == "time") {
+         const date = new Date(child.textContent);
+         const timestamp = date.getTime()/1000;
+	 if (startTime == -1) {
+	   startTime = timestamp;
+	 }
+	 currentTime = timestamp - startTime;
+	 if (lastTime == -1) {
+	   lastTime = currentTime;
+	 }
+         timeDiff = currentTime - lastTime;
+	 lastTime = currentTime;
+      }
+      if (child.tagName == "extensions") {
+	var ns = "http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
+	var track = child.getElementsByTagNameNS(ns,"TrackPointExtension")[0]
+        var temp = track.getElementsByTagNameNS(ns,"atemp")[0].textContent;
+        var hr = track.getElementsByTagNameNS(ns,"hr")[0].textContent;
+        var cad = track.getElementsByTagNameNS(ns,"cad")[0].textContent;
+
+	var timeDiffMin = timeDiff / 60;
+	var speed_min = Math.floor(timeDiffMin/distance)
+	var speed_sec = Math.floor((timeDiffMin/distance - speed_min)*60)
+	var cum_speed_min = Math.floor(currentTime/60/totalDist)
+	var cum_speed_sec = Math.floor((currentTime/60/totalDist-cum_speed_min)*60)
+
+	stats.push({"cum_speed_min": cum_speed_min, "cum_speed_sec": cum_speed_sec,"lat":lat,"lon":lon,"time":currentTime,"temp": temp,"hr":hr,"cad": cad,"dist": Math.round(totalDist*100)/100,"speed_min": speed_min,"speed_sec":speed_sec, "elevation": Math.round(elevation*100)/100, "elevation_diff": Math.round(elevationDiff*100)/100})
+      }
+    }
+  }
+  //console.log(stats);
+}
+
+function readGPX(event) {
+  var file = this.files[0]
+  var base = file.name.split('.')[0];
+  console.log(base);
+  getCoord(base);
+  document.getElementById("map").src = "map/" + base;
+  // Check if the file is an image.
+  const reader = new FileReader();
+  reader.addEventListener('load', (event) => {
+    parseGPX(event.target.result);
+  });
+  reader.readAsText(file);
+}
+
+function init() {
+	'use strict'
+  var URL = window.URL || window.webkitURL
+  var displayMessage = function (message, isError) {
+    console.log(message);
+  }
+  var playSelectedFile = function (event) {
+    var file = this.files[0]
+    var type = file.type
+    var videoNode = document.querySelector('video')
+    var canPlay = videoNode.canPlayType(type)
+    if (canPlay === '') canPlay = 'no'
+    var message = 'Can play type "' + type + '": ' + canPlay
+    var isError = canPlay === 'no'
+    displayMessage(message, isError)
+
+    if (isError) {
+      return
+    }
+
+    var fileURL = URL.createObjectURL(file)
+    videoNode.src = fileURL
+    videoNode.addEventListener('timeupdate', function() {
+	var minutes = Math.floor(this.currentTime/60);
+	var sec = Math.floor(this.currentTime - (minutes*60));
+	if (sec < 10) {
+	  sec = "0" + sec;
+	}
+	document.getElementById("min").innerHTML = minutes;
+	document.getElementById("sec").innerHTML = sec;
+
+	minutes = Math.floor(this.duration/60);
+	sec = Math.floor(this.duration - (minutes*60));
+	if (sec < 10) {
+	  sec = "0" + sec;
+	}
+	document.getElementById("durmin").innerHTML = minutes;
+	document.getElementById("dursec").innerHTML = sec;
+
+	var statTime = stats[currentStat]["time"] 
+	if (this.currentTime >= statTime + 1) {
+	  currentStat += 1;
+        }
+	var temp = stats[currentStat]["temp"] 
+	var cad = stats[currentStat]["cad"] 
+	var hr = stats[currentStat]["hr"] 
+	var elevation = stats[currentStat]["elevation"] 
+	var elevationDiff = stats[currentStat]["elevation_diff"] 
+	var lat = stats[currentStat]["lat"] 
+	var lon = stats[currentStat]["lon"] 
+
+	var distance = stats[currentStat]["dist"];
+	var speedsec = stats[currentStat]["speed_sec"];
+	var cumspeedsec = stats[currentStat]["cum_speed_sec"];
+	if (speedsec < 10) {
+	  speedsec = "0" + speedsec;
+	}
+	if (cumspeedsec < 10) {
+	  cumspeedsec = "0" + cumspeedsec;
+	}
+	var speedmin = stats[currentStat]["speed_min"];
+	var cumspeedmin = stats[currentStat]["cum_speed_min"];
+	document.getElementById("hr").innerHTML = hr;
+	document.getElementById("cad").innerHTML = cad;
+	document.getElementById("temp").innerHTML = temp;
+	document.getElementById("dist").innerHTML = distance;
+	document.getElementById("speedmin").innerHTML = speedmin;
+	document.getElementById("speedsec").innerHTML = speedsec;
+	document.getElementById("elevation").innerHTML = elevation;
+	document.getElementById("elevationdiff").innerHTML = elevationDiff;
+	document.getElementById("cumspeedmin").innerHTML = cumspeedmin;
+	document.getElementById("cumspeedsec").innerHTML = cumspeedsec;
+        drawCanvas(lat,lon,"blue");
+    });
+  }
+  var inputNode = document.getElementById('videofile')
+  inputNode.addEventListener('change', playSelectedFile, false)
+  var gpxNode = document.getElementById('gpxfile')
+  gpxNode.addEventListener('change', readGPX, false)
+  
+}
+
+var coord = {}
+async function getCoord(map) {
+  const url = "/coord/" + map;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Response status: ${response.status}`);
+    }
+
+    coord = await response.json();
+    console.log(coord);
+  } catch (error) {
+    console.error(error.message);
+  }
+}
+
+function dist(lat1, lon1, lat2, lon2) {
+  // Radius of the Earth in kilometers
+  const R = 6371;
+
+  // Convert latitude and longitude to radians
+  const lat1Rad = (Math.PI / 180) * lat1;
+  const lon1Rad = (Math.PI / 180) * lon1;
+  const lat2Rad = (Math.PI / 180) * lat2;
+  const lon2Rad = (Math.PI / 180) * lon2;
+
+  // Haversine formula
+  const dLat = lat2Rad - lat1Rad;
+  const dLon = lon2Rad - lon1Rad;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  // Calculate the distance
+  const distance = R * c;
+
+  return distance * 0.621371; // miles
+}
+function drawPath() {
+  const canvas = document.getElementById("mapcanvas");
+  const ctx = canvas.getContext("2d");
+  for (let i = 0 ; i < stats.length; i++) {
+    lat = stats[i]["lat"]
+    lon = stats[i]["lon"]
+    x = getX(lon)
+    y = getY(lat)
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, 2 * Math.PI); // Draw a full circle
+    ctx.fillStyle = "red"; // Set fill color
+    ctx.fill(); // Fill the circle
+  }
+}
+function getX(lon) {
+  const canvas = document.getElementById("mapcanvas");
+  if (coord["x1"] < coord["x2"]) {
+    return canvas.width * (lon - coord["x1"])/(coord["x2"] - coord["x1"])
+  }
+  return canvas.width * (1-(lon - coord["x2"])/(coord["x1"] - coord["x2"]))
+}
+function getY(lat) {
+  const canvas = document.getElementById("mapcanvas");
+  if (coord["y1"] < coord["y2"]) {
+    return canvas.height * (lat - coord["y1"])/(coord["y2"] - coord["y1"])
+  }
+  return canvas.height * (1-(lat - coord["y2"])/(coord["y1"] - coord["y2"]))
+}
+var hist = []
+function drawCanvas(lat,lon,color) {
+const canvas = document.getElementById("mapcanvas");
+const rec = document.getElementById("rec");
+const ctx = canvas.getContext("2d");
+const img = document.getElementById("map");
+canvas.width = rec.clientWidth*.2;
+canvas.height = rec.clientHeight*.2;
+
+var ratio = img.width/img.height
+var offset = canvas.getBoundingClientRect().width/img.width;
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+ctx.drawImage(img,0,0, img.naturalWidth, img.naturalHeight,0,0,Math.round(img.width*offset),Math.round(img.width*offset/ratio));
+
+drawPath();
+drawHistory();
+x = getX(lon)
+y = getY(lat)
+hist.push([x,y])
+ctx.beginPath();
+ctx.arc(x, y, 5, 0, 2 * Math.PI); // Draw a full circle
+ctx.fillStyle = color; // Set fill color
+ctx.fill(); // Fill the circle
+}
+function drawHistory() {
+  const canvas = document.getElementById("mapcanvas");
+  const ctx = canvas.getContext("2d");
+  for (let i = 0 ; i < hist.length; i++) {
+    let x = hist[i][0];
+    let y = hist[i][1];
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, 2 * Math.PI); // Draw a full circle
+    ctx.fillStyle = "yellow"; // Set fill color
+    ctx.fill(); // Fill the circle
+  }
+}
+</script>
+</head>
+<body onload="init()">
+<img id="map" src="" hidden>
+GPX: <input type="file" id="gpxfile" accept=".gpx"/>
+Video:<input type="file" id="videofile" accept="video/*"/>
+<div id="container">
+<video id="rec" width="100%" controls autoplay></video>
+<div id="mapdiv">
+<canvas id="mapcanvas"></canvas><br>
+</div>
+<div id="stats1">
+Time: <span id="min"></span>:<span id="sec"></span><br>
+Total: <span id="durmin"></span>:<span id="dursec"></span><br>
+Heart Rate: <span id="hr"></span><br>
+Temperature: <span id="temp"></span><br>
+Cadance: <span id="cad"></span><br>
+</div>
+<div id="stats2">
+Distance: <span id="dist"></span><br>
+Speed: <span id="speedmin"></span>:<span id="speedsec"></span><br>
+Elevation: <span id="elevation"></span><br>
+Elevation Diff: <span id="elevationdiff"></span><br>
+Cumulative Speed: <span id="cumspeedmin"></span>:<span id="cumspeedsec"></span><br>
+</div>
+</div>
+<body>
+</html>
