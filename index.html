@@ -277,7 +277,7 @@ drawPath();
 drawHistory();
 x = getX(lon)
 y = getY(lat)
-hist.push([x,y])
+hist.push([lon,lat])
 ctx.beginPath();
 ctx.arc(x, y, 5, 0, 2 * Math.PI); // Draw a full circle
 ctx.fillStyle = color; // Set fill color
@@ -287,8 +287,8 @@ function drawHistory() {
   const canvas = document.getElementById("mapcanvas");
   const ctx = canvas.getContext("2d");
   for (let i = 0 ; i < hist.length; i++) {
-    let x = hist[i][0];
-    let y = hist[i][1];
+    let x = getX(hist[i][0]);
+    let y = getY(hist[i][1]);
     ctx.beginPath();
     ctx.arc(x, y, 5, 0, 2 * Math.PI); // Draw a full circle
     ctx.fillStyle = "yellow"; // Set fill color
