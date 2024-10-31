@@ -17,7 +17,6 @@ var maxlon = null;
 function parseGPX(xmlStr) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlStr, "application/xml");
-  //console.log(xmlStr);
   var trkNodes = doc.querySelectorAll('trkpt')
   var currentTime = -1;
   var startTime = -1;
@@ -102,11 +101,7 @@ function parseGPX(xmlStr) {
 
 function readGPX(event) {
   var file = this.files[0]
-  var base = file.name.split('.')[0];
-  console.log(base);
-  getCoord(base);
-  document.getElementById("map").src = "map/" + base;
-  // Check if the file is an image.
+    // Check if the file is an image.
   const reader = new FileReader();
   reader.addEventListener('load', (event) => {
     parseGPX(event.target.result);
@@ -116,6 +111,7 @@ function readGPX(event) {
 
 function init() {
 	'use strict'
+  getCourses();
   var URL = window.URL || window.webkitURL
   var displayMessage = function (message, isError) {
     console.log(message);
@@ -299,12 +295,46 @@ function drawHistory() {
     ctx.fill(); // Fill the circle
   }
 }
+
+async function getCourses() {
+ select = document.getElementById('course-select');
+ url = "/list"
+ var courses = []
+ try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Response status: ${response.status}`);
+    }
+
+    courses = await response.json()
+    courses = courses["courses"];
+    console.log(courses);
+  } catch (error) {
+    console.error(error.message);
+    return
+  }
+
+  for (let i = 0; i < courses.length; i++) {
+    var opt = document.createElement('option');
+    opt.value = opt.text = courses[i];
+    select.add(opt);
+  }
+  document.querySelector('#course-select').addEventListener("change", function() {
+     console.log(this.value)
+     getCoord(this.value);
+     document.getElementById("map").src = "map/" + this.value;
+  });
+}
 </script>
 </head>
 <body onload="init()">
 <img id="map" src="" hidden>
 GPX: <input type="file" id="gpxfile" accept=".gpx"/>
 Video:<input type="file" id="videofile" accept="video/*"/>
+Course:
+<select name="pets" id="course-select">
+  <option value="">--Please choose a course--</option>
+</select>
 <div id="container">
 <video id="rec" width="100%" controls autoplay></video>
 <div id="mapdiv">
