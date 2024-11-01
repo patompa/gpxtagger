@@ -293,7 +293,7 @@ for (let e = 0; e < stats.length; e++) {
   w = e/stats.length * canvas.clientWidth;
   h = canvas.clientHeight * (1-(el - minele)/(maxele-minele));
   ctx.beginPath();
-  ctx.arc(w, h, 2, 0, 2 * Math.PI); // Draw a full circle
+  ctx.arc(w, h, 3, 0, 2 * Math.PI); // Draw a full circle
   ctx.fillStyle = "black"; // Set fill color
   ctx.fill(); // Fill the circle
 }
@@ -302,7 +302,7 @@ for (let e = 0; e < currentStat; e++) {
   w = e/stats.length * canvas.clientWidth;
   h = canvas.clientHeight * (1-(el - minele)/(maxele-minele));
   ctx.beginPath();
-  ctx.arc(w, h, 2, 0, 2 * Math.PI); // Draw a full circle
+  ctx.arc(w, h, 3, 0, 2 * Math.PI); // Draw a full circle
   ctx.fillStyle = "white"; // Set fill color
   ctx.fill(); // Fill the circle
 }
