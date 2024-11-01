@@ -5,7 +5,8 @@
 #container {position:relative}
 #stats1 {color: white; font-size: 15px;position:absolute;top:3;left:3;background:#0390fc70;width:180px;height:100px;}
 #stats2 {color:white; font-size: 15px;position:absolute;top:3;right:3;background:#0390fc70;width:180px;height:100px;}
-#mapdiv {position:absolute;bottom:0;left:0;}
+#mapdiv {position:absolute;bottom:50;left:0;}
+#elediv {position:absolute;bottom:0;left:0;background:#0390fc70;}
 </style>
 <script>
 var stats = [];
@@ -14,6 +15,8 @@ var minlat = null;
 var minlon = null;
 var maxlat = null;
 var maxlon = null; 
+var maxele = -1;
+var minele = -1;
 function parseGPX(xmlStr) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlStr, "application/xml");
@@ -59,7 +62,17 @@ function parseGPX(xmlStr) {
     var elevation = 0;
     for (const child of trkNodes[i].children) {
       if (child.tagName == "ele") {
-         elevation = child.textContent;
+         elevation = Number(child.textContent);
+	 if (maxele == -1 && minele == -1) {
+	   minele = elevation;
+	   maxele = elevation;
+	 }
+	 if (elevation < minele) {
+	   minele = elevation;
+	 }
+	 if (elevation > maxele) {
+	   maxele = elevation;
+	 }
          if (lastElevation == -1) {
 	   lastElevation = elevation;
          }
@@ -112,6 +125,7 @@ function readGPX(event) {
 function init() {
 	'use strict'
   getCourses();
+  initEle();
   var URL = window.URL || window.webkitURL
   var displayMessage = function (message, isError) {
     console.log(message);
@@ -183,6 +197,8 @@ function init() {
 	document.getElementById("cumspeedmin").innerHTML = cumspeedmin;
 	document.getElementById("cumspeedsec").innerHTML = cumspeedsec;
         drawCanvas(lat,lon,"blue");
+        drawEle(elevation,currentStat/stats.length);
+
     });
   }
   var inputNode = document.getElementById('videofile')
@@ -260,6 +276,23 @@ function getY(lat) {
   return canvas.height * (1-(lat - coord["y2"])/(coord["y1"] - coord["y2"]))
 }
 var hist = []
+function initEle() {
+const canvas = document.getElementById("elevationcanvas");
+const rec = document.getElementById("rec");
+canvas.width = rec.clientWidth;
+}
+
+function drawEle(ele,x) {
+const canvas = document.getElementById("elevationcanvas");
+const ctx = canvas.getContext("2d");
+w = x * canvas.clientWidth;
+h = canvas.clientHeight * (1-(ele - minele)/(maxele-minele));
+ctx.beginPath();
+ctx.arc(w, h, 2, 0, 2 * Math.PI); // Draw a full circle
+ctx.fillStyle = "white"; // Set fill color
+ctx.fill(); // Fill the circle
+}
+
 function drawCanvas(lat,lon,color) {
 const canvas = document.getElementById("mapcanvas");
 const rec = document.getElementById("rec");
@@ -353,6 +386,9 @@ Speed: <span id="speedmin"></span>:<span id="speedsec"></span><br>
 Elevation: <span id="elevation"></span><br>
 Elevation Diff: <span id="elevationdiff"></span><br>
 Cumulative Speed: <span id="cumspeedmin"></span>:<span id="cumspeedsec"></span><br>
+</div>
+<div id="elediv">
+<canvas style="border: 1px solid black;" id="elevationcanvas" width="100%" height="50"></canvas>
 </div>
 </div>
 <body>
