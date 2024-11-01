@@ -197,7 +197,7 @@ function init() {
 	document.getElementById("cumspeedmin").innerHTML = cumspeedmin;
 	document.getElementById("cumspeedsec").innerHTML = cumspeedsec;
         drawCanvas(lat,lon,"blue");
-        drawEle(elevation,currentStat/stats.length);
+        drawEle();
 
     });
   }
@@ -282,15 +282,30 @@ const rec = document.getElementById("rec");
 canvas.width = rec.clientWidth;
 }
 
-function drawEle(ele,x) {
+function drawEle() {
 const canvas = document.getElementById("elevationcanvas");
+const rec = document.getElementById("rec");
 const ctx = canvas.getContext("2d");
-w = x * canvas.clientWidth;
-h = canvas.clientHeight * (1-(ele - minele)/(maxele-minele));
-ctx.beginPath();
-ctx.arc(w, h, 2, 0, 2 * Math.PI); // Draw a full circle
-ctx.fillStyle = "white"; // Set fill color
-ctx.fill(); // Fill the circle
+canvas.width = rec.clientWidth;
+
+for (let e = 0; e < stats.length; e++) {
+  let el = stats[e]["elevation"] 
+  w = e/stats.length * canvas.clientWidth;
+  h = canvas.clientHeight * (1-(el - minele)/(maxele-minele));
+  ctx.beginPath();
+  ctx.arc(w, h, 2, 0, 2 * Math.PI); // Draw a full circle
+  ctx.fillStyle = "black"; // Set fill color
+  ctx.fill(); // Fill the circle
+}
+for (let e = 0; e < currentStat; e++) {
+  let el = stats[e]["elevation"] 
+  w = e/stats.length * canvas.clientWidth;
+  h = canvas.clientHeight * (1-(el - minele)/(maxele-minele));
+  ctx.beginPath();
+  ctx.arc(w, h, 2, 0, 2 * Math.PI); // Draw a full circle
+  ctx.fillStyle = "white"; // Set fill color
+  ctx.fill(); // Fill the circle
+}
 }
 
 function drawCanvas(lat,lon,color) {
