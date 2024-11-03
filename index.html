@@ -1,13 +1,26 @@
 <html>
 <head>
 <title>GPX Tagger</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
 <style>
 #container {position:relative}
 #stats1 {color: white; font-size: 15px;position:absolute;top:3;left:3;background:#0390fc70;width:180px;height:100px;}
 #stats2 {color:white; font-size: 15px;position:absolute;top:3;right:3;background:#0390fc70;width:180px;height:100px;}
 #mapdiv {position:absolute;bottom:50;left:0;}
 #elediv {position:absolute;bottom:0;left:0;background:#0390fc70;}
+#osmap {z-index:0;width:25%;height:180px;position:absolute;bottom:50;left:0;}
+#osmapcanvas {z-index:1;opacity:0.5;position:absolute;bottom:50;left:0;}
+
+
+
 </style>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+
 <script>
 var stats = [];
 var currentStat = 0;
@@ -109,7 +122,54 @@ function parseGPX(xmlStr) {
       }
     }
   }
-  //console.log(stats);
+  adjustMap(minlat,minlon,maxlat,maxlon);
+  drawMapPath();
+}
+
+function adjustMap(minlat,minlon,maxlat,malon) {
+  var corner1 = L.latLng(minlat, minlon),
+  corner2 = L.latLng(maxlat, maxlon),
+  bounds = L.latLngBounds(corner1, corner2);
+  osmap.fitBounds(bounds);
+}
+function drawMapPath() {
+  const canvas = document.getElementById("osmapcanvas");
+  const osmapdiv = document.getElementById("osmap");
+  const ctx = canvas.getContext("2d");
+  canvas.width = osmapdiv.clientWidth;
+  canvas.height = osmapdiv.clientHeight;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (let i = 0; i < stats.length; i++) {
+      let lat = stats[i]["lat"];
+      let lon = stats[i]["lon"];
+      var latlng = L.latLng(lat, lon);
+      var p = osmap.latLngToLayerPoint(latlng);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI); // Draw a full circle
+      ctx.fillStyle = "red"; // Set fill color
+      ctx.fill(); // Fill the circle
+      
+   }
+}
+function drawMapHistory() {
+  const canvas = document.getElementById("osmapcanvas");
+  const osmapdiv = document.getElementById("osmap");
+  const ctx = canvas.getContext("2d");
+  for (let i = 0; i < hist.length; i++) {
+      let lat = hist[i][1];
+      let lon = hist[i][0];
+      var latlng = L.latLng(lat, lon);
+      var p = osmap.latLngToLayerPoint(latlng);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI); // Draw a full circle
+      if (i == hist.length - 1) {
+        ctx.fillStyle = "blue"; // Set fill color
+      } else {
+        ctx.fillStyle = "cyan"; // Set fill color
+      }
+      ctx.fill(); // Fill the circle
+  }
 }
 
 function readGPX(event) {
@@ -121,10 +181,15 @@ function readGPX(event) {
   });
   reader.readAsText(file);
 }
-
+var osmap;
 function init() {
 	'use strict'
-  getCourses();
+  osmap = L.map('osmap').setView([0, 0], 13);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(osmap);
+
   initEle();
   var URL = window.URL || window.webkitURL
   var displayMessage = function (message, isError) {
@@ -208,22 +273,6 @@ function init() {
   
 }
 
-var coord = {}
-async function getCoord(map) {
-  const url = "/coord/" + map;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Response status: ${response.status}`);
-    }
-
-    coord = await response.json();
-    console.log(coord);
-  } catch (error) {
-    console.error(error.message);
-  }
-}
-
 function dist(lat1, lon1, lat2, lon2) {
   // Radius of the Earth in kilometers
   const R = 6371;
@@ -246,34 +295,6 @@ function dist(lat1, lon1, lat2, lon2) {
   const distance = R * c;
 
   return distance * 0.621371; // miles
-}
-function drawPath() {
-  const canvas = document.getElementById("mapcanvas");
-  const ctx = canvas.getContext("2d");
-  for (let i = 0 ; i < stats.length; i++) {
-    lat = stats[i]["lat"]
-    lon = stats[i]["lon"]
-    x = getX(lon)
-    y = getY(lat)
-    ctx.beginPath();
-    ctx.arc(x, y, 3, 0, 2 * Math.PI); // Draw a full circle
-    ctx.fillStyle = "red"; // Set fill color
-    ctx.fill(); // Fill the circle
-  }
-}
-function getX(lon) {
-  const canvas = document.getElementById("mapcanvas");
-  if (coord["x1"] < coord["x2"]) {
-    return canvas.width * (lon - coord["x1"])/(coord["x2"] - coord["x1"])
-  }
-  return canvas.width * (1-(lon - coord["x2"])/(coord["x1"] - coord["x2"]))
-}
-function getY(lat) {
-  const canvas = document.getElementById("mapcanvas");
-  if (coord["y1"] < coord["y2"]) {
-    return canvas.height * (lat - coord["y1"])/(coord["y2"] - coord["y1"])
-  }
-  return canvas.height * (1-(lat - coord["y2"])/(coord["y1"] - coord["y2"]))
 }
 var hist = []
 function initEle() {
@@ -309,83 +330,9 @@ for (let e = 0; e < currentStat; e++) {
 }
 
 function drawCanvas(lat,lon,color) {
-const canvas = document.getElementById("mapcanvas");
-const rec = document.getElementById("rec");
-const ctx = canvas.getContext("2d");
-const img = document.getElementById("map");
-canvas.width = rec.clientWidth * .2;
-canvas.height = rec.clientHeight * .2;
-
-var ratio = img.width/img.height
-var offset = canvas.getBoundingClientRect().width/img.width;
-
-if (img.width < img.height) {
-  canvas.width = rec.clientHeight * .2;
-  canvas.height = rec.clientWidth * .2;
-  ratio = img.height/img.width
-  offset = canvas.getBoundingClientRect().height/img.height;
-  canvas.width = Math.round(img.width*offset)
-}
-
-ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-if (img.width < img.height) {
-  ctx.drawImage(img,0,0, img.naturalWidth, img.naturalHeight,0,0,Math.round(img.height*offset/ratio),Math.round(img.height*offset));
-} else{
-  ctx.drawImage(img,0,0, img.naturalWidth, img.naturalHeight,0,0,Math.round(img.width*offset),Math.round(img.width*offset/ratio));
-}
-
-drawPath();
-drawHistory();
-x = getX(lon)
-y = getY(lat)
-hist.push([lon,lat])
-ctx.beginPath();
-ctx.arc(x, y, 5, 0, 2 * Math.PI); // Draw a full circle
-ctx.fillStyle = color; // Set fill color
-ctx.fill(); // Fill the circle
-}
-function drawHistory() {
-  const canvas = document.getElementById("mapcanvas");
-  const ctx = canvas.getContext("2d");
-  for (let i = 0 ; i < hist.length; i++) {
-    let x = getX(hist[i][0]);
-    let y = getY(hist[i][1]);
-    ctx.beginPath();
-    ctx.arc(x, y, 5, 0, 2 * Math.PI); // Draw a full circle
-    ctx.fillStyle = "yellow"; // Set fill color
-    ctx.fill(); // Fill the circle
-  }
-}
-
-async function getCourses() {
- select = document.getElementById('course-select');
- url = "/list"
- var courses = []
- try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Response status: ${response.status}`);
-    }
-
-    courses = await response.json()
-    courses = courses["courses"];
-    console.log(courses);
-  } catch (error) {
-    console.error(error.message);
-    return
-  }
-
-  for (let i = 0; i < courses.length; i++) {
-    var opt = document.createElement('option');
-    opt.value = opt.text = courses[i];
-    select.add(opt);
-  }
-  document.querySelector('#course-select').addEventListener("change", function() {
-     console.log(this.value)
-     getCoord(this.value);
-     document.getElementById("map").src = "map/" + this.value;
-  });
+  drawMapPath();
+  drawMapHistory();
+  hist.push([lon,lat])
 }
 </script>
 </head>
@@ -393,10 +340,6 @@ async function getCourses() {
 <img id="map" src="" hidden>
 GPX: <input type="file" id="gpxfile" accept=".gpx"/>
 Video:<input type="file" id="videofile" accept="video/*"/>
-Course:
-<select name="pets" id="course-select">
-  <option value="">--Please choose a course--</option>
-</select>
 <div id="container">
 <video id="rec" width="100%" controls autoplay></video>
 <div id="mapdiv">
@@ -419,6 +362,8 @@ Cumulative Speed: <span id="cumspeedmin"></span>:<span id="cumspeedsec"></span><
 <div id="elediv">
 <canvas style="border: 1px solid black;" id="elevationcanvas" width="100%" height="50"></canvas>
 </div>
+<div id="osmap"></div>
+<canvas id="osmapcanvas"></canvas><br>
 </div>
 <body>
 </html>
