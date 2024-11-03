@@ -1,0 +1,6 @@
+#! /bin/bash
+which python3 || (echo "Please install Python3" && exit 1)
+python3 -m ensurepip --upgrade
+pip3 install -r requirements.txt
+open http://localhost:8081
+python3 server.py
