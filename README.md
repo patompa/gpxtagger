@@ -3,7 +3,8 @@ Simple tool to add a GPX overlay to videos shot
 with a FOV camera like GoPro or insta360.
 
 ## Starting the editor
-Simply open [index.html](index.html) in a browser.
+Simply open [index.html](index.html) in a browser or
+run it from the [GitHub pages of this repo](https://patompa.github.io/gpxtagger/).
 
 ## Working with the tool
 The tool requires a GPX file that was used when the video was shot.
